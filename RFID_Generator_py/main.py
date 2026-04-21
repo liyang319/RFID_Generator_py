@@ -2,7 +2,7 @@
 import tkinter as tk
 from tkinter import ttk, messagebox, scrolledtext
 from datetime import datetime
-from SocketClient import SocketClient  # 导入 SocketClient 类
+from SocketClient import SocketClient
 
 
 class RFIDTagGeneratorUI:
@@ -68,7 +68,7 @@ class RFIDTagGeneratorUI:
 
         ttk.Label(controls, text="IP：", font=('微软雅黑', 10)).grid(row=2, column=3, sticky='w', padx=(5, 2), pady=5)
         self.ip_entry = ttk.Entry(controls, width=15)
-        self.ip_entry.insert(0, "192.168.1.1")
+        self.ip_entry.insert(0, "192.168.3.103")
         self.ip_entry.grid(row=2, column=4, sticky='w', padx=2, pady=5)
 
         ttk.Label(controls, text="端口：", font=('微软雅黑', 10)).grid(row=2, column=5, sticky='w', padx=(5, 2), pady=5)
@@ -78,7 +78,7 @@ class RFIDTagGeneratorUI:
 
         self.status_circle = tk.Label(controls, text="●", fg="red", font=('微软雅黑', 14))
         self.status_circle.grid(row=2, column=7, padx=(5, 2), pady=5)
-        self.connect_btn = ttk.Button(controls, text="连接", command=self.connect_channel, width=8)
+        self.connect_btn = ttk.Button(controls, text="连接", command=self.toggle_connection, width=8)
         self.connect_btn.grid(row=2, column=8, sticky='w', padx=2, pady=5)
 
         # 第3行
@@ -177,8 +177,17 @@ class RFIDTagGeneratorUI:
         self.log_text.see(tk.END)
         self.log_text.update_idletasks()
 
+    def toggle_connection(self):
+        """连接/断开按钮的切换逻辑"""
+        if self.socket_client and self.socket_client.get_connection_status():
+            # 当前已连接，执行断开操作
+            self.disconnect_channel()
+        else:
+            # 当前未连接，执行连接操作
+            self.connect_channel()
+
     def connect_channel(self):
-        """连接按钮回调：使用界面上的IP和端口建立Socket连接"""
+        """连接服务器"""
         ip = self.ip_entry.get().strip()
         port_str = self.port_entry.get().strip()
         if not port_str.isdigit():
@@ -187,15 +196,15 @@ class RFIDTagGeneratorUI:
             return
         port = int(port_str)
 
-        # 如果已有连接，先断开
-        if self.socket_client and self.socket_client.get_connection_status():
+        # 如果已有连接对象但状态异常，先清理
+        if self.socket_client:
             self.socket_client.disconnect()
             self.socket_client = None
 
         # 创建新的SocketClient实例
         self.socket_client = SocketClient(host=ip, port=port)
 
-        # 设置回调函数（注意回调在子线程中运行，需用after调度到主线程）
+        # 设置回调函数
         def on_connection(success, msg):
             self.root.after(0, lambda: self._on_connection_result(success, msg))
 
@@ -203,7 +212,6 @@ class RFIDTagGeneratorUI:
             self.root.after(0, lambda: self.log_message(f"Socket错误: {error_msg}", tag='error'))
 
         def on_receive(data):
-            # 接收数据回调，可以在日志中显示
             self.root.after(0, lambda: self._on_receive_data(data))
 
         self.socket_client.set_callbacks(
@@ -212,31 +220,42 @@ class RFIDTagGeneratorUI:
             error_callback=on_error
         )
 
-        # 尝试连接
         self.log_message(f"正在连接 {ip}:{port} ...", tag='info')
-        self.socket_client.connect()  # 连接是异步的，结果会通过回调返回
+        self.socket_client.connect()
+
+    def disconnect_channel(self):
+        """主动断开连接"""
+        if self.socket_client:
+            self.socket_client.disconnect()
+            self.socket_client = None
+        # 更新UI状态
+        self.status_circle.config(fg="red")
+        self.work_status_circle.config(fg="red")
+        self.connect_btn.config(text="连接")
+        self.log_message("已主动断开连接", tag='warning')
 
     def _on_connection_result(self, success, msg):
-        """处理连接结果（在主线程中执行）"""
+        """连接结果回调（主线程）"""
         if success:
             self.status_circle.config(fg="green")
             self.work_status_circle.config(fg="green")
+            self.connect_btn.config(text="断开")
             self.log_message(f"连接成功: {msg}", tag='success')
         else:
             self.status_circle.config(fg="red")
             self.work_status_circle.config(fg="red")
+            self.connect_btn.config(text="连接")
             self.log_message(f"连接失败: {msg}", tag='error')
-            # 清空客户端对象，避免后续误用
+            # 清空客户端对象
             if self.socket_client:
                 self.socket_client.disconnect()
                 self.socket_client = None
 
     def _on_receive_data(self, data):
-        """接收到数据时的处理（在主线程中执行）"""
+        """接收数据回调（主线程）"""
         if isinstance(data, dict):
             self.log_message(f"收到JSON数据: {data}", tag='info')
         elif isinstance(data, bytes):
-            # 显示十六进制和字符串形式
             hex_str = data.hex().upper()
             try:
                 ascii_str = data.decode('utf-8', errors='replace')
@@ -247,7 +266,7 @@ class RFIDTagGeneratorUI:
             self.log_message(f"收到未知类型数据: {data}", tag='info')
 
     def manual_send(self):
-        """手动下发按钮：通过Socket发送数据（如果已连接）"""
+        """手动下发：将数据以JSON字符串形式发送"""
         click_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
         # 收集界面数据
@@ -269,19 +288,18 @@ class RFIDTagGeneratorUI:
             "timestamp": click_time
         }
 
-        # 如果Socket已连接，则发送数据
+        # 如果Socket已连接，则发送JSON字符串
         if self.socket_client and self.socket_client.get_connection_status():
             try:
-                self.socket_client.send_data(data)
+                self.socket_client.send_data(data)  # send_data 内部会将 dict 转为 JSON 字符串
                 self.log_message(f"手动下发数据已发送 (批号: {data['batch']}, 箱号: {data['box']})", tag='success')
             except Exception as e:
                 self.log_message(f"发送数据失败: {e}", tag='error')
         else:
             self.log_message("未连接到服务器，无法下发数据", tag='warning')
-            # 可选：弹出提示
             messagebox.showwarning("未连接", "请先连接服务器再手动下发")
 
-        # 同时保留原有的弹窗信息（便于调试）
+        # 保留原有弹窗信息（可选）
         info = (f"手动下发时间：{click_time}\n"
                 f"设备号：{data['device']}\n"
                 f"当前位置：{data['location']}\n"
@@ -302,7 +320,6 @@ class RFIDTagGeneratorUI:
         print("-" * 50)
 
     def __del__(self):
-        """析构时确保断开Socket连接"""
         if self.socket_client:
             self.socket_client.disconnect()
 

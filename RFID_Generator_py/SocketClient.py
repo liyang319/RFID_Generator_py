@@ -9,7 +9,7 @@ from typing import Callable, Any, Optional
 class SocketClient:
     """Socket通信客户端类"""
 
-    def __init__(self, host='192.168.1.200', port=2000):
+    def __init__(self, host='192.168.1.1', port=2000):
         self.host = host
         self.port = port
         self.socket = None
@@ -87,6 +87,7 @@ class SocketClient:
                 if data and self.socket:
                     if isinstance(data, dict):
                         data = json.dumps(data, ensure_ascii=False).encode('utf-8')
+                        # print(data)
                     elif isinstance(data, str):
                         data = data.encode('utf-8')
                     elif isinstance(data, bytes):
