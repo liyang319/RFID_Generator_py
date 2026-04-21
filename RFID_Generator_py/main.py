@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, scrolledtext
 from datetime import datetime
 
 class RFIDTagGeneratorUI:
@@ -12,90 +12,93 @@ class RFIDTagGeneratorUI:
         main = ttk.Frame(root, padding="20")
         main.pack(fill=tk.BOTH, expand=True)
 
-        # 主容器列配置：左右两侧可伸缩，中间内容区域固定宽度（不伸缩，但允许内部子控件伸缩）
-        # 总列数：左侧空白列(0)，内容区域(1)，右侧空白列(2)
-        main.columnconfigure(0, weight=1)   # 左侧空白，推动内容居中
-        main.columnconfigure(1, weight=0)   # 内容区域，不伸缩（内部控件自己控制）
-        main.columnconfigure(2, weight=1)   # 右侧空白，推动内容居中
+        # 主容器布局：内容区域可扩展，日志区域固定高度
+        main.grid_rowconfigure(0, weight=1)
+        main.grid_rowconfigure(1, weight=0)
+        main.grid_columnconfigure(0, weight=1)
 
-        # 内容框架，用于放置所有实际控件，保证整体居中
+        # 内容框架（水平居中）
         content = ttk.Frame(main)
-        content.grid(row=0, column=1, sticky='nsew')
+        content.grid(row=0, column=0, sticky='nsew')
+        content.columnconfigure(0, weight=1)
+        content.columnconfigure(1, weight=0)
+        content.columnconfigure(2, weight=1)
 
-        # 内容框架内部列配置（与原布局相同，0-8列）
-        content.columnconfigure(0, weight=0, minsize=120)
-        content.columnconfigure(1, weight=0, minsize=200)
-        content.columnconfigure(2, weight=0, minsize=20)
-        content.columnconfigure(3, weight=0, minsize=100)
-        content.columnconfigure(4, weight=0, minsize=200)
-        content.columnconfigure(5, weight=0, minsize=60)
-        content.columnconfigure(6, weight=0, minsize=80)
-        content.columnconfigure(7, weight=0)
-        content.columnconfigure(8, weight=1)
+        controls = ttk.Frame(content)
+        controls.grid(row=0, column=1, sticky='nsew')
 
-        # 第0行：标题与版本号
-        title_frame = ttk.Frame(content)
+        # controls 内部列配置（与原布局相同）
+        for i in range(9):
+            controls.columnconfigure(i, weight=0)
+        controls.columnconfigure(8, weight=1)
+        controls.columnconfigure(0, minsize=120)
+        controls.columnconfigure(1, minsize=200)
+        controls.columnconfigure(2, minsize=20)
+        controls.columnconfigure(3, minsize=100)
+        controls.columnconfigure(4, minsize=200)
+        controls.columnconfigure(5, minsize=60)
+        controls.columnconfigure(6, minsize=80)
+
+        # 标题
+        title_frame = ttk.Frame(controls)
         title_frame.grid(row=0, column=0, columnspan=9, sticky='ew', pady=(0,15))
         title_frame.columnconfigure(0, weight=1)
         ttk.Label(title_frame, text="RFID标签生成系统", font=('微软雅黑', 16, 'bold')).pack(side='left', expand=True)
         ttk.Label(title_frame, text="v1.0.0", font=('微软雅黑', 12)).pack(side='left', padx=(10,0))
 
-        # ========== 第1-4行（紧凑左对齐，保持不变） ==========
         # 第1行
-        ttk.Label(content, text="设备号：", font=('微软雅黑', 10)).grid(row=1, column=0, sticky='w', padx=(5,2), pady=8)
-        self.device_entry = ttk.Entry(content, width=25)
+        ttk.Label(controls, text="设备号：", font=('微软雅黑', 10)).grid(row=1, column=0, sticky='w', padx=(5,2), pady=8)
+        self.device_entry = ttk.Entry(controls, width=25)
         self.device_entry.insert(0, "TAG_PRODUCER_001")
         self.device_entry.grid(row=1, column=1, sticky='w', padx=2, pady=8)
 
-        ttk.Label(content, text="当前位置：", font=('微软雅黑', 10)).grid(row=1, column=3, sticky='w', padx=(5,2), pady=8)
-        self.location_entry = ttk.Entry(content, width=35)
+        ttk.Label(controls, text="当前位置：", font=('微软雅黑', 10)).grid(row=1, column=3, sticky='w', padx=(5,2), pady=8)
+        self.location_entry = ttk.Entry(controls, width=35)
         self.location_entry.insert(0, "经度116.3918173° 纬度39.9797956°")
         self.location_entry.grid(row=1, column=4, sticky='w', padx=2, pady=8)
 
         # 第2行
-        ttk.Label(content, text="通道机：", font=('微软雅黑', 10)).grid(row=2, column=0, sticky='w', padx=(5,2), pady=5)
-        self.channel_combo = ttk.Combobox(content, width=23, values=["生产线通道机001", "生产线通道机002"], state="readonly")
+        ttk.Label(controls, text="通道机：", font=('微软雅黑', 10)).grid(row=2, column=0, sticky='w', padx=(5,2), pady=5)
+        self.channel_combo = ttk.Combobox(controls, width=23, values=["生产线通道机001", "生产线通道机002"], state="readonly")
         self.channel_combo.set("生产线通道机001")
         self.channel_combo.grid(row=2, column=1, sticky='w', padx=2, pady=5)
 
-        ttk.Label(content, text="IP：", font=('微软雅黑', 10)).grid(row=2, column=3, sticky='w', padx=(5,2), pady=5)
-        self.ip_entry = ttk.Entry(content, width=15)
+        ttk.Label(controls, text="IP：", font=('微软雅黑', 10)).grid(row=2, column=3, sticky='w', padx=(5,2), pady=5)
+        self.ip_entry = ttk.Entry(controls, width=15)
         self.ip_entry.insert(0, "192.168.1.1")
         self.ip_entry.grid(row=2, column=4, sticky='w', padx=2, pady=5)
 
-        ttk.Label(content, text="端口：", font=('微软雅黑', 10)).grid(row=2, column=5, sticky='w', padx=(5,2), pady=5)
-        self.port_entry = ttk.Entry(content, width=10)
+        ttk.Label(controls, text="端口：", font=('微软雅黑', 10)).grid(row=2, column=5, sticky='w', padx=(5,2), pady=5)
+        self.port_entry = ttk.Entry(controls, width=10)
         self.port_entry.insert(0, "2000")
         self.port_entry.grid(row=2, column=6, sticky='w', padx=2, pady=5)
 
-        self.status_circle = tk.Label(content, text="●", fg="red", font=('微软雅黑', 14))
+        self.status_circle = tk.Label(controls, text="●", fg="red", font=('微软雅黑', 14))
         self.status_circle.grid(row=2, column=7, padx=(5,2), pady=5)
-        self.connect_btn = ttk.Button(content, text="连接", command=self.connect_channel, width=8)
+        self.connect_btn = ttk.Button(controls, text="连接", command=self.connect_channel, width=8)
         self.connect_btn.grid(row=2, column=8, sticky='w', padx=2, pady=5)
 
         # 第3行
-        ttk.Label(content, text="工作状态：", font=('微软雅黑', 10)).grid(row=3, column=0, sticky='w', padx=(5,2), pady=2)
-        self.work_status_circle = tk.Label(content, text="●", fg="red", font=('微软雅黑', 14))
+        ttk.Label(controls, text="工作状态：", font=('微软雅黑', 10)).grid(row=3, column=0, sticky='w', padx=(5,2), pady=2)
+        self.work_status_circle = tk.Label(controls, text="●", fg="red", font=('微软雅黑', 14))
         self.work_status_circle.grid(row=3, column=1, sticky='w', padx=2, pady=2)
 
-        ttk.Label(content, text="异常信息：", font=('微软雅黑', 10)).grid(row=3, column=3, sticky='w', padx=(5,2), pady=2)
-        self.exception_label = ttk.Label(content, text="无异常", font=('微软雅黑', 10), foreground="green")
+        ttk.Label(controls, text="异常信息：", font=('微软雅黑', 10)).grid(row=3, column=3, sticky='w', padx=(5,2), pady=2)
+        self.exception_label = ttk.Label(controls, text="无异常", font=('微软雅黑', 10), foreground="green")
         self.exception_label.grid(row=3, column=4, sticky='w', padx=2, pady=2)
 
         # 分割线
-        separator = ttk.Separator(content, orient='horizontal')
-        separator.grid(row=4, column=0, columnspan=9, sticky='ew', pady=10)
+        ttk.Separator(controls, orient='horizontal').grid(row=4, column=0, columnspan=9, sticky='ew', pady=10)
 
-        # ========== 第5-9行：放入独立Frame实现水平均匀分布 ==========
-        bottom_frame = ttk.Frame(content)
+        # 第5-9行（均匀分布）
+        bottom_frame = ttk.Frame(controls)
         bottom_frame.grid(row=5, column=0, columnspan=9, sticky='ew', pady=5)
-        # 内部列配置：左边标签(0),左边输入框(1),可伸缩间距(2),右边标签(3),右边输入框/下拉框(4),按钮列(5)
-        bottom_frame.columnconfigure(0, weight=0)   # 左边标签列
-        bottom_frame.columnconfigure(1, weight=0)   # 左边输入框列
-        bottom_frame.columnconfigure(2, weight=1)   # 可伸缩间距列，推动右边组向右
-        bottom_frame.columnconfigure(3, weight=0)   # 右边标签列
-        bottom_frame.columnconfigure(4, weight=0)   # 右边输入框/下拉框列
-        bottom_frame.columnconfigure(5, weight=0)   # 手动下发按钮列（仅第9行使用）
+        bottom_frame.columnconfigure(0, weight=0)
+        bottom_frame.columnconfigure(1, weight=0)
+        bottom_frame.columnconfigure(2, weight=1)
+        bottom_frame.columnconfigure(3, weight=0)
+        bottom_frame.columnconfigure(4, weight=0)
+        bottom_frame.columnconfigure(5, weight=0)
 
         # 第5行
         ttk.Label(bottom_frame, text="生产企业类别代码：", font=('微软雅黑', 10)).grid(row=0, column=0, sticky='w', padx=(0,5), pady=8)
@@ -150,10 +153,31 @@ class RFIDTagGeneratorUI:
         self.send_btn = ttk.Button(bottom_frame, text="手动下发", command=self.manual_send, width=15)
         self.send_btn.grid(row=4, column=4, sticky='w', padx=5, pady=8)
 
+        # ========== 系统日志区域 ==========
+        log_frame = ttk.LabelFrame(main, text="系统日志", padding="5")
+        log_frame.grid(row=1, column=0, sticky='ew', pady=(10,0))
+        log_frame.grid_columnconfigure(0, weight=1)
+
+        self.log_text = scrolledtext.ScrolledText(log_frame, height=10, wrap=tk.WORD, font=('Consolas', 9))
+        self.log_text.grid(row=0, column=0, sticky='nsew')
+        self.log_text.tag_config('info', foreground='black')
+        self.log_text.tag_config('success', foreground='green')
+        self.log_text.tag_config('error', foreground='red')
+        self.log_text.tag_config('warning', foreground='orange')
+
+        self.log_message("系统启动", tag='info')
+
+    def log_message(self, msg, tag='info'):
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        self.log_text.insert(tk.END, f"[{timestamp}] {msg}\n", tag)
+        self.log_text.see(tk.END)
+        self.log_text.update_idletasks()
+
     def connect_channel(self):
         current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         self.status_circle.config(fg="green")
         self.work_status_circle.config(fg="green")
+        self.log_message(f"连接通道机成功 (IP: {self.ip_entry.get()}, 端口: {self.port_entry.get()})", tag='success')
         messagebox.showinfo("连接", f"通道机连接成功！\n点击时间：{current_time}")
 
     def manual_send(self):
@@ -172,6 +196,10 @@ class RFIDTagGeneratorUI:
         batch = self.batch_entry.get()
         date = self.date_entry.get()
         box = self.box_entry.get()
+
+        self.log_message(f"手动下发 - 批号: {batch}, 箱号: {box}, 日期: {date}", tag='info')
+        self.log_message(f"  设备号: {device}, 通道机: {channel}, IP: {ip}:{port}", tag='info')
+        self.log_message(f"  产品: {product}, 规格: {spec}, 净质量: {weight}kg", tag='info')
 
         info = (f"手动下发时间：{click_time}\n"
                 f"设备号：{device}\n"
