@@ -12,22 +12,21 @@ class RFIDTagGeneratorUI:
         main = ttk.Frame(root, padding="20")
         main.pack(fill=tk.BOTH, expand=True)
 
-        # 主容器布局：内容区域可扩展，日志区域固定高度
-        main.grid_rowconfigure(0, weight=1)
-        main.grid_rowconfigure(1, weight=0)
+        # 主容器：水平居中布局
         main.grid_columnconfigure(0, weight=1)
+        main.grid_columnconfigure(1, weight=0)
+        main.grid_columnconfigure(2, weight=1)
+        main.grid_rowconfigure(0, weight=1)
 
-        # 内容框架（水平居中）
+        # 内容框架（包含所有控件和日志）
         content = ttk.Frame(main)
-        content.grid(row=0, column=0, sticky='nsew')
-        content.columnconfigure(0, weight=1)
-        content.columnconfigure(1, weight=0)
-        content.columnconfigure(2, weight=1)
+        content.grid(row=0, column=1, sticky='nsew')
+        content.grid_columnconfigure(0, weight=1)
 
+        # 上层控件区域（不扩展高度）
         controls = ttk.Frame(content)
-        controls.grid(row=0, column=1, sticky='nsew')
-
-        # controls 内部列配置（与原布局相同）
+        controls.grid(row=0, column=0, sticky='ew')
+        # controls内部列配置（与原布局相同，9列）
         for i in range(9):
             controls.columnconfigure(i, weight=0)
         controls.columnconfigure(8, weight=1)
@@ -153,13 +152,14 @@ class RFIDTagGeneratorUI:
         self.send_btn = ttk.Button(bottom_frame, text="手动下发", command=self.manual_send, width=15)
         self.send_btn.grid(row=4, column=4, sticky='w', padx=5, pady=8)
 
-        # ========== 系统日志区域 ==========
-        log_frame = ttk.LabelFrame(main, text="系统日志", padding="5")
-        log_frame.grid(row=1, column=0, sticky='ew', pady=(10,0))
-        log_frame.grid_columnconfigure(0, weight=1)
+        # ========== 系统日志区域（与控件区域左右对齐，填充下方空白） ==========
+        log_frame = ttk.LabelFrame(content, text="系统日志", padding="5")
+        log_frame.grid(row=1, column=0, sticky='nsew', pady=(10,0))
+        content.grid_rowconfigure(1, weight=1)  # 日志区域可扩展，填充剩余高度
+        content.grid_rowconfigure(0, weight=0)  # 控件区域不扩展
 
-        self.log_text = scrolledtext.ScrolledText(log_frame, height=10, wrap=tk.WORD, font=('Consolas', 9))
-        self.log_text.grid(row=0, column=0, sticky='nsew')
+        self.log_text = scrolledtext.ScrolledText(log_frame, wrap=tk.WORD, font=('Consolas', 9))
+        self.log_text.pack(fill=tk.BOTH, expand=True)
         self.log_text.tag_config('info', foreground='black')
         self.log_text.tag_config('success', foreground='green')
         self.log_text.tag_config('error', foreground='red')
