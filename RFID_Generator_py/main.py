@@ -56,12 +56,10 @@ class RFIDTagGeneratorUI:
         # ========== 第1行：设备号与当前位置 ==========
         ttk.Label(controls, text="设备号：", font=('微软雅黑', 10)).grid(row=1, column=0, sticky='w', padx=(5, 2), pady=8)
         self.device_entry = ttk.Entry(controls, width=25)
-        self.device_entry.insert(0, "TAG_PRODUCER_001")
         self.device_entry.grid(row=1, column=1, sticky='w', padx=2, pady=8)
 
         ttk.Label(controls, text="当前位置：", font=('微软雅黑', 10)).grid(row=1, column=3, sticky='w', padx=(5, 2), pady=8)
         self.location_entry = ttk.Entry(controls, width=35)
-        self.location_entry.insert(0, "经度116.3918173° 纬度39.9797956°")
         self.location_entry.grid(row=1, column=4, sticky='w', padx=2, pady=8)
 
         # ========== 第2行：通道机、IP、端口及连接按钮 ==========
@@ -181,44 +179,65 @@ class RFIDTagGeneratorUI:
 
     # ==================== 配置文件加载 ====================
     def load_device_config(self):
-        """加载 device.json 配置文件，填充通道机下拉框，并设置默认 IP 和端口"""
+        """加载 device.json 配置文件，填充设备号、当前位置及通道机下拉框"""
         config_file = "device.json"
-        devices = []
         if os.path.exists(config_file):
             try:
                 with open(config_file, 'r', encoding='utf-8') as f:
-                    devices = json.load(f)
-                if not isinstance(devices, list):
-                    raise ValueError("配置文件根元素必须是数组")
-                self.log_message(f"成功加载设备配置文件，共 {len(devices)} 个设备", tag='success')
+                    config = json.load(f)
+                # 设置设备号
+                device_id = config.get('device_id', '')
+                if device_id:
+                    self.device_entry.delete(0, tk.END)
+                    self.device_entry.insert(0, device_id)
+                # 设置当前位置
+                location = config.get('location', '')
+                if location:
+                    self.location_entry.delete(0, tk.END)
+                    self.location_entry.insert(0, location)
+                # 处理通道机列表
+                channel_machines = config.get('channel_machine', [])
+                if not isinstance(channel_machines, list):
+                    raise ValueError("channel_machine 必须是数组")
+                if channel_machines:
+                    names = [m.get('name', '未知设备') for m in channel_machines if 'name' in m]
+                    self.channel_combo['values'] = names
+                    # 保存完整设备信息
+                    self.devices_info = {m['name']: m for m in channel_machines if 'name' in m}
+                    if names:
+                        self.channel_combo.set(names[0])
+                        self.update_ip_port_from_selection()
+                else:
+                    # 通道机列表为空，回退到默认值
+                    self._set_default_channel_options()
+                self.log_message(f"成功加载配置文件 {config_file}", tag='success')
             except Exception as e:
-                self.log_message(f"加载设备配置文件失败: {e}，将使用默认值", tag='error')
-                devices = []
+                self.log_message(f"加载配置文件失败: {e}，使用默认值", tag='error')
+                self._set_default_device_fields()
+                self._set_default_channel_options()
         else:
-            self.log_message(f"配置文件 {config_file} 不存在，使用默认通道机选项", tag='warning')
+            self.log_message(f"配置文件 {config_file} 不存在，使用默认值", tag='warning')
+            self._set_default_device_fields()
+            self._set_default_channel_options()
 
-        if devices:
-            # 提取 name 列表
-            names = [dev.get('name', '未知设备') for dev in devices if 'name' in dev]
-            self.channel_combo['values'] = names
-            # 保存完整设备信息供后续查询
-            self.devices_info = {dev['name']: dev for dev in devices if 'name' in dev}
-            # 默认选中第一个设备
-            if names:
-                self.channel_combo.set(names[0])
-                self.update_ip_port_from_selection()
-        else:
-            # 回退到硬编码默认值
-            default_names = ["生产线通道机001", "生产线通道机002"]
-            self.channel_combo['values'] = default_names
-            self.channel_combo.set(default_names[0])
-            # 构造一个简单的设备信息字典
-            self.devices_info = {
-                "生产线通道机001": {"ip": "192.168.1.1", "port": 2000},
-                "生产线通道机002": {"ip": "192.168.1.2", "port": 2000}
-            }
-            self.update_ip_port_from_selection()
-            self.log_message("使用内置默认设备列表", tag='warning')
+    def _set_default_device_fields(self):
+        """设置默认的设备号和当前位置"""
+        self.device_entry.delete(0, tk.END)
+        self.device_entry.insert(0, "TAG_PRODUCER_001")
+        self.location_entry.delete(0, tk.END)
+        self.location_entry.insert(0, "经度116.3918173° 纬度39.9797956°")
+
+    def _set_default_channel_options(self):
+        """设置默认的通道机选项"""
+        default_names = ["生产线通道机001", "生产线通道机002"]
+        self.channel_combo['values'] = default_names
+        self.channel_combo.set(default_names[0])
+        self.devices_info = {
+            "生产线通道机001": {"ip": "192.168.1.1", "port": 2000},
+            "生产线通道机002": {"ip": "192.168.1.2", "port": 2000}
+        }
+        self.update_ip_port_from_selection()
+        self.log_message("使用内置默认设备列表", tag='warning')
 
     # ==================== 通道机选择联动 ====================
     def on_channel_selected(self, event=None):
