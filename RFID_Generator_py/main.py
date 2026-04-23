@@ -105,54 +105,45 @@ class RFIDTagGeneratorUI:
         bottom_frame.columnconfigure(4, weight=0)
         bottom_frame.columnconfigure(5, weight=0)
 
-        # 第5行：生产企业类别代码 & 产品种类和名称
+        # 第5行：生产企业类别代码 & 产品种类和名称（改为输入框）
         ttk.Label(bottom_frame, text="生产企业类别代码：", font=('微软雅黑', 10)).grid(row=0, column=0, sticky='w', padx=(0, 5), pady=8)
         self.manufacture_code = ttk.Entry(bottom_frame, width=25)
-        self.manufacture_code.insert(0, "D6")
         self.manufacture_code.grid(row=0, column=1, sticky='w', padx=5, pady=8)
 
         ttk.Label(bottom_frame, text="产品种类和名称：", font=('微软雅黑', 10)).grid(row=0, column=3, sticky='w', padx=(0, 5), pady=8)
-        self.product_combo = ttk.Combobox(bottom_frame, width=33, values=["高密度震源药柱[箱]", "其他产品"], state="readonly")
-        self.product_combo.set("高密度震源药柱[箱]")
-        self.product_combo.grid(row=0, column=4, sticky='w', padx=5, pady=8)
+        self.product_name_entry = ttk.Entry(bottom_frame, width=33)  # 改为输入框
+        self.product_name_entry.grid(row=0, column=4, sticky='w', padx=5, pady=8)
 
         # 第6行：生产许可证编号代码 & 规格型号（数量）
         ttk.Label(bottom_frame, text="生产许可证编号代码：", font=('微软雅黑', 10)).grid(row=1, column=0, sticky='w', padx=(0, 5), pady=8)
         self.license_code = ttk.Entry(bottom_frame, width=25)
-        self.license_code.insert(0, "D6")
         self.license_code.grid(row=1, column=1, sticky='w', padx=5, pady=8)
 
         ttk.Label(bottom_frame, text="规格型号（数量）：", font=('微软雅黑', 10)).grid(row=1, column=3, sticky='w', padx=(0, 5), pady=8)
         self.spec_entry = ttk.Entry(bottom_frame, width=33)
-        self.spec_entry.insert(0, "高密度震源药柱[箱]")
         self.spec_entry.grid(row=1, column=4, sticky='w', padx=5, pady=8)
 
         # 第7行：包装方式 & 净质量
         ttk.Label(bottom_frame, text="包装方式：", font=('微软雅黑', 10)).grid(row=2, column=0, sticky='w', padx=(0, 5), pady=8)
         self.pack_entry = ttk.Entry(bottom_frame, width=25)
-        self.pack_entry.insert(0, "D6")
         self.pack_entry.grid(row=2, column=1, sticky='w', padx=5, pady=8)
 
         ttk.Label(bottom_frame, text="净质量：", font=('微软雅黑', 10)).grid(row=2, column=3, sticky='w', padx=(0, 5), pady=8)
         self.net_weight = ttk.Entry(bottom_frame, width=33)
-        self.net_weight.insert(0, "12")
         self.net_weight.grid(row=2, column=4, sticky='w', padx=5, pady=8)
 
         # 第8行：生产批号 & 生产日期
         ttk.Label(bottom_frame, text="生产批号：", font=('微软雅黑', 10)).grid(row=3, column=0, sticky='w', padx=(0, 5), pady=8)
         self.batch_entry = ttk.Entry(bottom_frame, width=25)
-        self.batch_entry.insert(0, "D6")
         self.batch_entry.grid(row=3, column=1, sticky='w', padx=5, pady=8)
 
         ttk.Label(bottom_frame, text="生产日期：", font=('微软雅黑', 10)).grid(row=3, column=3, sticky='w', padx=(0, 5), pady=8)
         self.date_entry = ttk.Entry(bottom_frame, width=33)
-        self.date_entry.insert(0, "20260101")
         self.date_entry.grid(row=3, column=4, sticky='w', padx=5, pady=8)
 
         # 第9行：生产箱（袋）号 & 手动下发按钮
         ttk.Label(bottom_frame, text="生产箱（袋）号：", font=('微软雅黑', 10)).grid(row=4, column=0, sticky='w', padx=(0, 5), pady=8)
         self.box_entry = ttk.Entry(bottom_frame, width=25)
-        self.box_entry.insert(0, "10")
         self.box_entry.grid(row=4, column=1, sticky='w', padx=5, pady=8)
 
         self.send_btn = ttk.Button(bottom_frame, text="手动下发", command=self.manual_send, width=15)
@@ -176,6 +167,8 @@ class RFIDTagGeneratorUI:
 
         # ========== 加载设备配置文件 ==========
         self.load_device_config()
+        # ========== 加载通用配置文件 ==========
+        self.load_config()
 
     # ==================== 配置文件加载 ====================
     def load_device_config(self):
@@ -238,6 +231,56 @@ class RFIDTagGeneratorUI:
         }
         self.update_ip_port_from_selection()
         self.log_message("使用内置默认设备列表", tag='warning')
+
+    def load_config(self):
+        """加载 config.json 配置文件，设置各控件的初始值"""
+        config_file = "config.json"
+        if os.path.exists(config_file):
+            try:
+                with open(config_file, 'r', encoding='utf-8') as f:
+                    config = json.load(f)
+                # 生产企业类别代码
+                if 'manufacture_code' in config:
+                    self.manufacture_code.delete(0, tk.END)
+                    self.manufacture_code.insert(0, str(config['manufacture_code']))
+                # 产品种类和名称
+                if 'product_name' in config:
+                    self.product_name_entry.delete(0, tk.END)
+                    self.product_name_entry.insert(0, str(config['product_name']))
+                # 生产许可证编号代码
+                if 'license_code' in config:
+                    self.license_code.delete(0, tk.END)
+                    self.license_code.insert(0, str(config['license_code']))
+                # 规格型号
+                if 'product_spec' in config:
+                    self.spec_entry.delete(0, tk.END)
+                    self.spec_entry.insert(0, str(config['product_spec']))
+                # 包装方式
+                if 'pack_type' in config:
+                    self.pack_entry.delete(0, tk.END)
+                    self.pack_entry.insert(0, str(config['pack_type']))
+                # 净质量
+                if 'net_weight' in config:
+                    self.net_weight.delete(0, tk.END)
+                    self.net_weight.insert(0, str(config['net_weight']))
+                # 生产批号
+                if 'batch' in config:
+                    self.batch_entry.delete(0, tk.END)
+                    self.batch_entry.insert(0, str(config['batch']))
+                # 生产日期
+                if 'date' in config:
+                    self.date_entry.delete(0, tk.END)
+                    self.date_entry.insert(0, str(config['date']))
+                # 生产箱（袋）号
+                if 'package_num' in config:
+                    self.box_entry.delete(0, tk.END)
+                    self.box_entry.insert(0, str(config['package_num']))
+
+                self.log_message(f"成功加载配置文件 {config_file}", tag='success')
+            except Exception as e:
+                self.log_message(f"加载配置文件 {config_file} 失败: {e}，使用默认值", tag='error')
+        else:
+            self.log_message(f"配置文件 {config_file} 不存在，使用默认值", tag='warning')
 
     # ==================== 通道机选择联动 ====================
     def on_channel_selected(self, event=None):
@@ -351,9 +394,9 @@ class RFIDTagGeneratorUI:
 
     # ==================== 手动下发 ====================
     def manual_send(self):
-        """手动下发：将当前界面数据以 JSON 字符串形式发送到服务器"""
+        """手动下发：将当前界面数据以 JSON 字符串形式发送到服务器，字段名与 config.json 保持一致"""
         click_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        # 收集界面数据
+        # 收集界面数据，使用 config.json 中的字段名
         data = {
             "device": self.device_entry.get(),
             "location": self.location_entry.get(),
@@ -361,21 +404,21 @@ class RFIDTagGeneratorUI:
             "ip": self.ip_entry.get(),
             "port": self.port_entry.get(),
             "manufacture_code": self.manufacture_code.get(),
-            "product": self.product_combo.get(),
+            "product_name": self.product_name_entry.get(),      # 对应产品种类和名称
             "license_code": self.license_code.get(),
-            "spec": self.spec_entry.get(),
-            "pack": self.pack_entry.get(),
+            "product_spec": self.spec_entry.get(),             # 对应规格型号
+            "pack_type": self.pack_entry.get(),                # 对应包装方式
             "net_weight": self.net_weight.get(),
             "batch": self.batch_entry.get(),
             "date": self.date_entry.get(),
-            "box": self.box_entry.get(),
+            "package_num": self.box_entry.get(),               # 对应生产箱（袋）号
             "timestamp": click_time
         }
 
         if self.socket_client and self.socket_client.get_connection_status():
             try:
                 self.socket_client.send_data(data)
-                self.log_message(f"手动下发数据已发送 (批号: {data['batch']}, 箱号: {data['box']})", tag='success')
+                self.log_message(f"手动下发数据已发送 (批号: {data['batch']}, 箱号: {data['package_num']})", tag='success')
             except Exception as e:
                 self.log_message(f"发送数据失败: {e}", tag='error')
         else:
@@ -389,14 +432,14 @@ class RFIDTagGeneratorUI:
                 f"通道机：{data['channel']}\n"
                 f"IP：{data['ip']}  端口：{data['port']}\n"
                 f"生产企业类别代码：{data['manufacture_code']}\n"
-                f"产品种类和名称：{data['product']}\n"
+                f"产品种类和名称：{data['product_name']}\n"
                 f"生产许可证编号代码：{data['license_code']}\n"
-                f"规格型号：{data['spec']}\n"
-                f"包装方式：{data['pack']}\n"
+                f"规格型号：{data['product_spec']}\n"
+                f"包装方式：{data['pack_type']}\n"
                 f"净质量：{data['net_weight']}\n"
                 f"生产批号：{data['batch']}\n"
                 f"生产日期：{data['date']}\n"
-                f"生产箱（袋）号：{data['box']}\n"
+                f"生产箱（袋）号：{data['package_num']}\n"
                 f"指令已发送至通道机。")
         messagebox.showinfo("手动下发", info)
         print(info)
