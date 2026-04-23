@@ -392,55 +392,113 @@ class RFIDTagGeneratorUI:
         else:
             self.log_message(f"收到未知类型数据: {data}", tag='info')
 
+    # ==================== 数据生成 ====================
+    def generate_rfid_data(self):
+        """
+        根据界面控件的值生成 RFID 十六进制数据（字节串）
+        规则：
+        - 产品种类和名称 (product_name): 3字节 ASCII
+        - 生产企业类别代码 (manufacture_code): 2字节 ASCII
+        - 生产许可证编号代码 (license_code): 2字节 十六进制数 (补位到4位十六进制，即2字节)
+        - 规格型号 (product_spec): 2字节 十六进制数
+        - 包装方式 (pack_type): 1字节 ASCII
+        - 净质量 (net_weight): 2字节 十六进制数
+        - 生产日期 (date): 3字节 年、月、日各1字节 (YY MM DD)
+        - 生产批号 (batch): 2字节 十六进制数 (最大9999)
+        - 生产箱号 (package_num): 2字节 十六进制数
+        """
+        # 获取控件值（去除首尾空格）
+        product_name = self.product_name_entry.get().strip()
+        manufacture_code = self.manufacture_code.get().strip()
+        license_code = self.license_code.get().strip()
+        product_spec = self.spec_entry.get().strip()
+        pack_type = self.pack_entry.get().strip()
+        net_weight = self.net_weight.get().strip()
+        date_str = self.date_entry.get().strip()
+        batch = self.batch_entry.get().strip()
+        package_num = self.box_entry.get().strip()
+
+        # 辅助函数：ASCII 转 bytes，固定长度，不足则右侧补空格
+        def ascii_to_bytes(s, length):
+            if len(s) > length:
+                s = s[:length]  # 截断
+            return s.ljust(length).encode('ascii')
+
+        # 辅助函数：十进制数字字符串转 2 字节大端，补位到 4 位十六进制
+        def dec_to_2bytes(val_str):
+            try:
+                val = int(val_str)
+            except:
+                val = 0
+            if val < 0:
+                val = 0
+            if val > 65535:
+                val = 65535
+            return val.to_bytes(2, byteorder='big')
+
+        # 1. 产品种类和名称 (3字节 ASCII)
+        data = ascii_to_bytes(product_name, 3)
+
+        # 2. 生产企业类别代码 (2字节 ASCII)
+        data += ascii_to_bytes(manufacture_code, 2)
+
+        # 3. 生产许可证编号代码 (2字节 十六进制数)
+        data += dec_to_2bytes(license_code)
+
+        # 4. 规格型号 (2字节 十六进制数)
+        data += dec_to_2bytes(product_spec)
+
+        # 5. 包装方式 (1字节 ASCII)
+        data += ascii_to_bytes(pack_type, 1)
+
+        # 6. 净质量 (2字节 十六进制数)
+        data += dec_to_2bytes(net_weight)
+
+        # 7. 生产日期 (3字节: 年,月,日，每个占1字节，输入应为6位数字 YYMMDD)
+        # 将6位数字拆分为3个字节
+        date_bytes = bytearray()
+        if len(date_str) == 6 and date_str.isdigit():
+            year = int(date_str[0:2])
+            month = int(date_str[2:4])
+            day = int(date_str[4:6])
+            # 每个值范围 0-255，直接作为字节
+            date_bytes.append(year)
+            date_bytes.append(month)
+            date_bytes.append(day)
+        else:
+            # 默认填充 0
+            date_bytes = bytearray([0, 0, 0])
+        data += date_bytes
+
+        # 8. 生产批号 (2字节 十六进制数)
+        data += dec_to_2bytes(batch)
+
+        # 9. 生产箱号 (2字节 十六进制数)
+        data += dec_to_2bytes(package_num)
+
+        return data
+
     # ==================== 手动下发 ====================
     def manual_send(self):
-        """手动下发：将当前界面数据以 JSON 字符串形式发送到服务器，字段名与 config.json 保持一致"""
-        click_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        # 收集界面数据，使用 config.json 中的字段名
-        data = {
-            "device": self.device_entry.get(),
-            "location": self.location_entry.get(),
-            "channel": self.channel_combo.get(),
-            "ip": self.ip_entry.get(),
-            "port": self.port_entry.get(),
-            "manufacture_code": self.manufacture_code.get(),
-            "product_name": self.product_name_entry.get(),      # 对应产品种类和名称
-            "license_code": self.license_code.get(),
-            "product_spec": self.spec_entry.get(),             # 对应规格型号
-            "pack_type": self.pack_entry.get(),                # 对应包装方式
-            "net_weight": self.net_weight.get(),
-            "batch": self.batch_entry.get(),
-            "date": self.date_entry.get(),
-            "package_num": self.box_entry.get(),               # 对应生产箱（袋）号
-            "timestamp": click_time
-        }
+        """手动下发：生成 RFID 十六进制数据并通过 Socket 发送"""
+        # 生成数据
+        rfid_data = self.generate_rfid_data()
+        hex_str = ' '.join(f'{b:02X}' for b in rfid_data)
 
         if self.socket_client and self.socket_client.get_connection_status():
             try:
-                self.socket_client.send_data(data)
-                self.log_message(f"手动下发数据已发送 (批号: {data['batch']}, 箱号: {data['package_num']})", tag='success')
+                self.socket_client.send_data(rfid_data)  # 直接发送字节数据
+                self.log_message(f"手动下发数据已发送 (长度: {len(rfid_data)} 字节)\n数据: {hex_str}", tag='success')
             except Exception as e:
                 self.log_message(f"发送数据失败: {e}", tag='error')
         else:
             self.log_message("未连接到服务器，无法下发数据", tag='warning')
             messagebox.showwarning("未连接", "请先连接服务器再手动下发")
 
-        # 同时弹出信息框（可选）
-        info = (f"手动下发时间：{click_time}\n"
-                f"设备号：{data['device']}\n"
-                f"当前位置：{data['location']}\n"
-                f"通道机：{data['channel']}\n"
-                f"IP：{data['ip']}  端口：{data['port']}\n"
-                f"生产企业类别代码：{data['manufacture_code']}\n"
-                f"产品种类和名称：{data['product_name']}\n"
-                f"生产许可证编号代码：{data['license_code']}\n"
-                f"规格型号：{data['product_spec']}\n"
-                f"包装方式：{data['pack_type']}\n"
-                f"净质量：{data['net_weight']}\n"
-                f"生产批号：{data['batch']}\n"
-                f"生产日期：{data['date']}\n"
-                f"生产箱（袋）号：{data['package_num']}\n"
-                f"指令已发送至通道机。")
+        # 同时弹出信息框显示十六进制数据（便于调试）
+        info = (f"手动下发时间：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
+                f"生成的 RFID 数据 ({len(rfid_data)} 字节):\n{hex_str}\n\n"
+                f"数据已发送至通道机。")
         messagebox.showinfo("手动下发", info)
         print(info)
         print("-" * 50)
