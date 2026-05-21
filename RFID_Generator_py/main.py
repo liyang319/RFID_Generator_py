@@ -480,24 +480,34 @@ class RFIDTagGeneratorUI:
 
     # ==================== 手动下发 ====================
     def manual_send(self):
-        """手动下发：生成 RFID 十六进制数据并通过 Socket 发送"""
-        # 生成数据
-        rfid_data = self.generate_rfid_data()
-        hex_str = ' '.join(f'{b:02X}' for b in rfid_data)
+        """手动下发：生成 RFID 十六进制数据，包装成 JSON 格式后发送"""
+        # 生成原始字节数据
+        rfid_bytes = self.generate_rfid_data()
+        # 将字节转换为整数列表（0-255）
+        data_list = list(rfid_bytes)
+        # 构造 JSON 消息
+        message = {
+            "type": "rfid",
+            "data": data_list
+        }
+        json_str = json.dumps(message, ensure_ascii=False)
+        hex_preview = ' '.join(f'{b:02X}' for b in rfid_bytes)
 
         if self.socket_client and self.socket_client.get_connection_status():
             try:
-                self.socket_client.send_data(rfid_data)  # 直接发送字节数据
-                self.log_message(f"手动下发数据已发送 (长度: {len(rfid_data)} 字节)\n数据: {hex_str}", tag='success')
+                # 发送 JSON 字符串（SocketClient 会自动编码为 UTF-8 字节）
+                self.socket_client.send_data(json_str)
+                self.log_message(f"手动下发 RFID 数据成功 (长度: {len(rfid_bytes)} 字节)\n数据: {hex_preview}", tag='success')
             except Exception as e:
                 self.log_message(f"发送数据失败: {e}", tag='error')
         else:
             self.log_message("未连接到服务器，无法下发数据", tag='warning')
             messagebox.showwarning("未连接", "请先连接服务器再手动下发")
 
-        # 同时弹出信息框显示十六进制数据（便于调试）
+        # 弹窗显示详细信息（便于调试）
         info = (f"手动下发时间：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
-                f"生成的 RFID 数据 ({len(rfid_data)} 字节):\n{hex_str}\n\n"
+                f"生成的 RFID 原始数据 ({len(rfid_bytes)} 字节):\n{hex_preview}\n\n"
+                f"发送的 JSON 消息:\n{json_str}\n\n"
                 f"数据已发送至通道机。")
         messagebox.showinfo("手动下发", info)
         print(info)
